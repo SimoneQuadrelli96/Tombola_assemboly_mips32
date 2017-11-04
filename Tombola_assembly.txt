@@ -1,0 +1,1441 @@
+.data
+
+nodocart: .word 0
+nodoia: .word 0
+numestratti: .word 0
+cartelle: .word 0
+
+string1: .asciiz "Quante cartelle vuoi usare? (max 10) " 
+string2: .asciiz "Scegli una cartella (tra 1 e 10)"
+string3: .asciiz "Numero di cartelle non valido \n"
+string4: .asciiz "Contentuto della cartella\n"
+string5: .asciiz " "
+string6: .asciiz "
+ "
+string7: .asciiz "La partita ha inizio
+ Buona fortuna!
+"
+string8: .asciiz "Numero estratto: "
+string9: .asciiz "TOMBOLA! Hai vinto"
+string10: .asciiz "Inserisci il tuo numero fortunato(intero positivo) "
+string11: .asciiz "Estrazione numero "
+string12: .asciiz "X"
+string13: .asciiz "Cartelle dell'avversario"
+string14: .asciiz "Hai perso "
+string15: .asciiz "Premere invio per estrarre il prossimo numero "
+.text
+
+.globl main
+main:
+
+	li $t0, 10	# massimo numero di cartelle
+	li $t1, 1	# minimo numero di cartelle
+
+numerocartelle:
+# l'utente sceglie con quante cartelle giocare
+				
+	li $v0, 4
+	la $a0, string1
+	syscall			# richiesta numero cartelle
+
+	li $v0, 5
+	syscall			# lettura numero
+
+	addi $a1, $v0, 0        # salvataggio del numero
+	add $s7, $a1, $zero	# salvataggio del numero		
+	addi $t9, $a1, 0	# salvataggio del numero
+	addi $t7, $t9, 0	# salvataggio del numero
+
+
+	blt $a1, $t1, errore	# se il numero è minore di 
+	bgt $a1, $t0, errore	# se il numero è maggiore di 10
+	j ins_seme
+
+errore:
+	li $v0, 4
+	la $a0, string3
+	syscall			# stampa messaggio di errore
+	
+	j numerocartelle
+
+ins_seme:
+# richiesta di un seme per il metodo Casuali
+
+	li $v0, 4
+	la $a0, string10
+	syscall			# richiesta seme
+
+	li $v0, 5
+	syscall			# lettura seme
+
+	move $a2, $v0		# salvataggio seme
+	
+	blez $a2, ins_seme	# controllo ammissibilità
+	j creazione
+
+oggetto:	
+# inizializzazione oggetto cartelle
+
+	li $v0, 9
+	li $a0, 28	
+	syscall			# alloco 28 byte 
+	
+	move $s5, $v0
+	sw $s5, cartelle
+
+# creazione della jump address table
+
+	la $t0, StampaCartelle
+	sw $t0, 0($s5)
+	la $t0, Casuali
+	sw $t0, 4($s5)
+	la $t0, AggiornaEstratti
+	sw $t0, 8($s5)
+	la $t0, ScorriEstratti
+	sw $t0, 12($s5)
+	la $t0, ControlloCartelle
+	sw $t0, 16($s5)
+	la $t0, Tombola
+	sw $t0, 20($s5)
+	la $t0, TombolaIa
+	sw $t0, 24($s5)
+
+
+# crea lista cartelle per giocare
+
+	lw $t0, nodocart	
+	addi $s1, $s7, 0	# salvo numero cartelle
+
+	sub $a0, $s1,10
+	beq $a0, $zero, stampa	# se scelgo 10 cartelle non ho bisogno di troncare la lista
+	
+# tronco la lista delle cartelle
+	
+loopg:	beq $s7, $zero, fineg
+	sub $s7, $s7, 1
+	lw $t0, 60($t0)
+	j loopg
+
+fineg: 	li $a3, 0
+	sw $a3, 0($t0)		# termino la lista
+
+# crea lista cartelle per ia
+
+	lw $t0, nodoia	
+
+	addi $s7, $s1, 0	# ripristino numero cartelle
+	sub $a0, $s1,10
+	beq $a0, $zero, stampa	# se scelgo 10 cartelle non ho bisogno di troncare la lista
+	
+# tronco la lista delle cartelle
+	
+loopl:	beq $s7, $zero, finel
+	sub $s7, $s7, 1
+	lw $t0, 60($t0)
+	j loopl
+
+finel: 	li $a3, 0
+	sw $a3, 0($t0)		# termino la lista
+
+# stampa a video le cartelle scelte dal giocatore
+
+stampa:
+	addi $t2, $t9, 0	# contatore del ciclo = numero di cartelle
+	lw $s0, nodocart	
+
+loops: 	
+	beq $t2, $zero,stampaia
+
+	li $v0, 4
+	la $a0, string4
+	syscall			# stampa intestazione
+
+	addi $t2, $t2, -1
+	jal StampaCartelle
+
+	li $v0, 4
+	la $a0, string6		# stampa separatore
+	syscall
+
+	j loops
+
+# stampa a video le cartelle scelte dall'ia
+
+stampaia:
+
+	li $v0, 4
+	la $a0, string6
+	syscall			# stampa separatore
+
+	li $v0, 4
+	la $a0, string13
+	syscall			# stampa intestazione
+
+	li $v0, 4
+	la $a0, string6
+	syscall			# stampa separatore
+
+	
+	addi $t2, $t9, 0	# contatore del ciclo = numero di cartelle
+	lw $s0, nodoia	
+
+loopsia: 	
+	beq $t2, $zero,fineloop
+
+	li $v0, 4
+	la $a0, string4
+	syscall			# stampa intestazione
+
+	addi $t2, $t2, -1
+	jal StampaCartelle
+
+	li $v0, 4
+	la $a0, string6		# stampa separatore
+	syscall
+
+	j loopsia
+
+
+fineloop:	
+
+	li $v0, 4
+	la $a0, string6
+	syscall			# stampa separatore
+
+	li $v0, 4
+	la $a0, string7
+	syscall			# stampa intestazione
+
+
+	li $v0, 4
+	la $a0, string6
+	syscall			# stampa divisore
+
+	li $s2, 90
+	move $a0, $a2
+	
+	
+
+partita: 
+# porzione di codice in cui si gestisce la partita
+
+# stampa intestazione per ogni estrazione
+	move $a2, $a0		# sposta seme per numeri casuali
+
+	li $v0, 4
+	la $a0, string11
+	syscall			
+
+	li $a3, 90
+	sub $a0, $a3, $s2
+	addi $a0, $a0, 1	# conta del nemero delle ripetizioni del ciclo
+
+	li $v0, 1		
+	syscall
+
+	li $v0, 4
+	la $a0, string6
+	syscall
+
+	li $v0, 4
+	la $a0, string6
+	syscall
+
+	move $a0, $a2		# prepara seme per il metodo Casuali
+	
+
+	beq $s2, $zero, exit
+	addi $s2, $s2, -1	# decremento contatore
+
+	jal Casuali
+	jal AggiornaEstratti
+	jal ScorriEstratti
+	lw $s4, nodocart	 # controllo cartelle giocatore	
+	jal ControlloCartelle
+	lw $s4, nodoia	
+	jal ControlloCartelle	# controllo cartelle ia 
+	
+
+# controllo tombola giocatore
+
+	li $t2, 0		# inizializzazione contatore del ciclo
+	lw $s7, nodocart
+
+tombo:
+	beq $t2, $t7, ia
+	addi $t2, $t2,	1
+ 
+	jal Tombola
+
+	j tombo
+
+
+# controllo tombola ia
+
+ia:	li $t2, 0		# inizializzazione contatore del ciclo
+	lw $s7, nodoia
+
+tombo_ia:
+	beq $t2, $t7, stampam
+	addi $t2, $t2,	1
+ 
+	jal TombolaIa
+
+	j tombo_ia
+
+
+
+# stampa delle cartelle sostituendo al numero estratto "X"
+stampam:
+	addi $t2, $t7, 0
+	lw $s0, nodocart	
+	move $a2, $a0		# sposta seme per numeri casuali
+
+loopsm: 	
+	beq $t2, $zero,sist
+
+	li $v0, 4
+	la $a0, string4
+	syscall
+
+	addi $t2, $t2, -1
+	jal StampaCartelle
+
+	li $v0, 4
+	la $a0, string6
+	syscall
+	
+
+	j loopsm
+
+# stampa separatori
+
+sist: 
+	li $v0, 4
+	la $a0, string6
+	syscall			# stampa separatore
+
+	li $v0, 4
+	la $a0, string6
+	syscall			# stampa separatore
+
+ripresa:
+	li $v0, 4
+	la $a0, string15
+	syscall			# stampa intestazione
+
+	li $v0, 5
+	syscall			# leggi input
+
+	
+	li $v0, 4
+	la $a0, string6
+	syscall			# stampa separatore
+
+	
+	move $a0, $a2		# prepara seme per il metodo Casuali
+
+	addi $v0, $v0, -5
+	bne $v0, $zero, partita
+	j ripresa
+
+
+exit:
+# terminazione dell'esecuzione dopo l'estrazione di 90 numeri
+
+li $v0, 10		# uscita
+syscall
+
+.end main
+
+
+# METODI
+	
+
+Casuali:
+# seme in a0, risultato in $a1
+
+
+	li $t1, 31	# a = 31
+	li $t2, 90	# m = 90 
+	li $t3, 13	# c = 13
+
+	mult $t1, $a0
+	mflo $a0		# a*xi
+	
+	add $a0, $a0, $t3	# a*xi+c
+
+	div $a0, $t2		# a*xi + c mod 90
+	mfhi $a0
+
+	addi $a1, $a0, 1	# sommo 1 per avere numeri tra 1 e 90	
+
+	jr $ra
+
+
+AggiornaEstratti:
+# numero casuale generato in $a1,in $t0 si trova l'inidirizzo di memoria del primo nodo
+	
+	li $s0, 0
+	
+	lw $t0, numestratti
+	bne $t0, $zero, aggiorna
+
+	li $v0, 9
+	li $a0, 8
+	syscall			# alloco memoria
+
+	sw $v0, numestratti	# salvo indirizzo del primo nodo in testa
+	move $s1, $v0		# lo sposto in $s1
+	
+	sw $a1, 0($s1)		# salva numero nel nodo
+	sw $s0, 4($s1)		# puntiamo a 0
+	
+	li $v0, 4
+	la $a0, string8
+	syscall
+
+	li $v0, 1
+	lw $a0, 0($s1)
+	syscall
+
+	li $v0, 4
+	la $a0, string6
+	syscall
+
+	
+	addi $a0, $a1, -1	# preparo seme per la prossima funzione
+	j fineae
+
+
+
+aggiorna:
+# in $s1 ci deve essere indirizzo di memoria del nodo precedente	
+	
+	li $v0, 9
+	li $a0, 8
+	syscall			# alloco memoria
+
+	sw $v0, 4($s1)		# collego n-1 a n
+	move $s1, $v0		
+
+
+	sw $a1, 0($s1)		# salvo valore
+	sw $s0, 4($s1)		# punto a 0
+
+	li $v0, 4
+	la $a0, string8
+	syscall	
+
+	li $v0, 1
+	lw $a0, 0($s1)
+	syscall
+	
+	li $v0, 4
+	la $a0, string6
+	syscall
+
+	addi $a0, $a1, -1	# preparo per la funzione
+
+fineae:	
+
+	j $ra
+
+StampaCartelle:
+# in $s0 deve avere l'indirizzo della testa
+
+	li $t1, 15
+	li $a3, -1
+loopsc:
+	
+	beq $t1, $zero, finesc
+
+	lw $a0, 0($s0)		# carica un elemento
+	bne $a0, $a3, int
+	
+	li $v0, 4
+	la $a0, string12
+	syscall
+	j divisore
+	
+
+int:
+	li $v0, 1
+	syscall			# stampa numero
+	
+divisore:
+	li $v0, 4
+	la $a0, string5
+	syscall			# stampa divisore
+
+	addi $s0, $s0, 4	# prossimo elemento
+	addi $t1, $t1, -1	# decrementa contatore
+	j loopsc
+
+finesc:
+	addi $s0, $s0, 4		# punta alla prossima cartella
+	j $ra
+
+
+
+ScorriEstratti:
+# privo di argomenti. risultato in $t4
+
+	lw $t2, numestratti	
+
+loopse:
+	beq $t2, $zero, finese
+	
+	lw $t4, 0($t2)		# salva contenuto
+	lw $t2, 4($t2)		# vai la nodo successivo
+	j loopse 
+
+finese:
+	jr $ra	
+
+ControlloCartelle:
+#$t4 è il numero casuale, $t7 = numero cartelle, in $s4 devo avere l'indirizzo del primo nodo
+
+	li $t3, 0
+
+
+loopr:	beq $t7, $t3, finepr
+
+	li $t1, 15
+	li $t2, -1
+
+loopp:
+	beq $t1, $zero, finep
+
+	lw $t6, 0($s4)		# carico un elemento
+	
+	bne $t6, $t4, ripresap	# se il numero contenuto nella cartella e quello estratto sono uguali
+	sw $t2, 0($s4)		# sostituisco il numero nella cartella con -1
+
+ripresap:
+	addi $s4, $s4, 4	# prossimo elemento
+	addi $t1, $t1, -1	# decremento contatore
+	j loopp
+
+finep:
+	addi $s4, $s4, 4	# prossima cartella
+	addi $t3, $t3, 1	# incrementa contatore principale
+	j loopr
+
+finepr:
+	jr $ra
+
+
+Tombola:
+# in $s7 abbiamo l'inizio della cartella
+	
+
+	li $t1, 15
+	li $t6, 4
+	li $t3, 0
+	
+loopt:
+	beq $t1, $zero, finet
+	addi $t1, $t1, -1	# decrementa contatore
+
+	lw $t0, 0($s7)		# carica un elemento
+	bltz $t0, succe 
+   	
+	mult $t1, $t6
+	mflo $s6
+	add $s7, $s7, $s6
+	j endt
+	
+
+succe:
+	addi $s7, $s7, 4	# prossimo elemento
+	
+	j loopt
+
+finet:
+
+	
+	li $v0, 4
+	la $a0, string6
+	syscall
+	
+	li $v0, 4
+	la $a0, string9
+	syscall
+
+	li $v0, 10
+	syscall
+	 
+	
+endt:	addi $s7, $s7, 4	# punta alla prossima cartella
+	jr $ra		
+
+
+TombolaIa:
+
+# in $s7 abbiamo l'inizio della cartella
+	
+	
+
+	li $t1, 15
+	li $t6, 4
+	li $t3, 0
+	
+loopia:
+	beq $t1, $zero, fineia
+	addi $t1, $t1, -1	# decrementa contatore
+
+	lw $t0, 0($s7)		# carica un elemento
+	bltz $t0, succeia 
+   	
+	mult $t1, $t6
+	mflo $s6
+	add $s7, $s7, $s6
+	j endia
+	
+
+succeia:
+	addi $s7, $s7, 4	# prossimo elemento
+	
+	j loopia
+
+fineia:
+
+	
+	li $v0, 4
+	la $a0, string6
+	syscall
+	
+	li $v0, 4
+	la $a0, string14
+	syscall
+
+	li $v0, 10
+	syscall
+	 
+	
+endia:	addi $s7, $s7, 4	# punta alla prossima cartella
+	jr $ra
+
+
+
+
+creazione:
+
+# creazione cartelle per il giocatore
+
+# inizializzazione cartella1
+
+	li $v0, 9
+	li $a0, 64	
+	syscall			# allocazione memoria
+
+	add $s1, $v0, $zero	# salva indirizzo
+	sw $v0 , nodocart	# indirizzo nella testa
+	move $s1, $v0		# nodo corrente è il nodo creato
+	li $t0, 2
+	sw $t0, 0($s1)		# salva valori
+	li $t0, 24
+	sw $t0, 4($s1)	
+	li $t0, 31
+	sw $t0, 8($s1)	
+	li $t0, 56
+	sw $t0, 12($s1)	
+	li $t0, 63
+	sw $t0, 16($s1)	
+	li $t0, 13
+	sw $t0, 20($s1)	
+	li $t0, 39
+	sw $t0, 24($s1)	
+	li $t0, 48
+	sw $t0, 28($s1)	
+	li $t0, 67
+	sw $t0, 32($s1)	
+	li $t0, 70
+	sw $t0, 36($s1)	
+	li $t0, 7
+	sw $t0, 40($s1)	
+	li $t0, 19
+	sw $t0, 44($s1)	
+	li $t0, 46
+	sw $t0, 48($s1)	
+	li $t0, 51
+	sw $t0, 52($s1)	
+	li $t0, 87
+	sw $t0, 56($s1)
+
+
+
+# creazione cartella2
+
+	li $v0, 9
+	li $a0, 64	
+	syscall			# allocazione memoria
+
+	
+	sw $v0 , 60($s1)	# indirizzo in cartella precedente
+	add $s1, $v0, $zero	# salva indirizzo
+
+	li $t0, 11
+	sw $t0, 0($s1)		# salva valori
+	li $t0, 21
+	sw $t0, 4($s1)	
+	li $t0, 45
+	sw $t0, 8($s1)	
+	li $t0, 63
+	sw $t0, 12($s1)	
+	li $t0, 88
+	sw $t0, 16($s1)	
+	li $t0, 14
+	sw $t0, 20($s1)	
+	li $t0, 30
+	sw $t0, 24($s1)	
+	li $t0, 48
+	sw $t0, 28($s1)	
+	li $t0, 54
+	sw $t0, 32($s1)	
+	li $t0, 77
+	sw $t0, 36($s1)	
+	li $t0, 1
+	sw $t0, 40($s1)	
+	li $t0, 17
+	sw $t0, 44($s1)	
+	li $t0, 57
+	sw $t0, 48($s1)	
+	li $t0, 62
+	sw $t0, 52($s1)	
+	li $t0, 90
+	sw $t0, 56($s1)
+
+# creazione cartella3
+	
+	li $v0, 9
+	li $a0, 64	
+	syscall			# allocazione memoria
+
+	sw $v0 , 60($s1)	# indirizzo in cartella precedente
+	add $s1, $v0, $zero	# salva indirizzo
+
+	li $t0, 14
+	sw $t0, 0($s1)		# salva valori
+	li $t0, 20
+	sw $t0, 4($s1)	
+	li $t0, 57
+	sw $t0, 8($s1)	
+	li $t0, 62
+	sw $t0, 12($s1)	
+	li $t0, 81
+	sw $t0, 16($s1)	
+	li $t0, 5
+	sw $t0, 20($s1)	
+	li $t0, 16
+	sw $t0, 24($s1)	
+	li $t0, 32
+	sw $t0, 28($s1)	
+	li $t0, 43
+	sw $t0, 32($s1)	
+	li $t0, 78
+	sw $t0, 36($s1)	
+	li $t0, 25
+	sw $t0, 40($s1)	
+	li $t0, 37
+	sw $t0, 44($s1)	
+	li $t0, 59
+	sw $t0, 48($s1)	
+	li $t0, 64
+	sw $t0, 52($s1)	
+	li $t0, 86
+	sw $t0, 56($s1)
+
+# creazione cartella4
+	
+	li $v0, 9
+	li $a0, 64	
+	syscall			# allocazione memoria
+
+	sw $v0 , 60($s1)	# indirizzo in cartella precedente
+	add $s1, $v0, $zero	# salva indirizzo
+
+	li $t0, 1
+	sw $t0, 0($s1)		# salva valori
+	li $t0, 23
+	sw $t0, 4($s1)	
+	li $t0, 40
+	sw $t0, 8($s1)	
+	li $t0, 52
+	sw $t0, 12($s1)	
+	li $t0, 74
+	sw $t0, 16($s1)	
+	li $t0, 10
+	sw $t0, 20($s1)	
+	li $t0, 38
+	sw $t0, 24($s1)	
+	li $t0, 57
+	sw $t0, 28($s1)	
+	li $t0, 61
+	sw $t0, 32($s1)	
+	li $t0, 85
+	sw $t0, 36($s1)	
+	li $t0, 4
+	sw $t0, 40($s1)	
+	li $t0, 27
+	sw $t0, 44($s1)	
+	li $t0, 49
+	sw $t0, 48($s1)	
+	li $t0, 76
+	sw $t0, 52($s1)	
+	li $t0, 88
+	sw $t0, 56($s1)
+
+# creazione cartella5
+	
+	li $v0, 9
+	li $a0, 64	
+	syscall			# allocazione memoria
+
+	sw $v0 , 60($s1)	# indirizzo in cartella precedente
+	add $s1, $v0, $zero	# salva indirizzo
+
+	li $t0, 9
+	sw $t0, 0($s1)		# salva valori
+	li $t0, 12
+	sw $t0, 4($s1)	
+	li $t0, 71
+	sw $t0, 8($s1)	
+	li $t0, 65
+	sw $t0, 12($s1)	
+	li $t0, 83
+	sw $t0, 16($s1)	
+	li $t0, 13
+	sw $t0, 20($s1)	
+	li $t0, 31
+	sw $t0, 24($s1)	
+	li $t0, 59
+	sw $t0, 28($s1)	
+	li $t0, 65
+	sw $t0, 32($s1)	
+	li $t0, 79
+	sw $t0, 36($s1)	
+	li $t0, 2
+	sw $t0, 40($s1)	
+	li $t0, 29
+	sw $t0, 44($s1)	
+	li $t0, 34
+	sw $t0, 48($s1)	
+	li $t0, 44
+	sw $t0, 52($s1)	
+	li $t0, 67
+	sw $t0, 56($s1)
+
+# creazione cartella6
+	
+	li $v0, 9
+	li $a0, 64	
+	syscall			# allocazione memoria
+
+	sw $v0 , 60($s1)	# indirizzo in cartella precedente
+	add $s1, $v0, $zero	# salva indirizzo
+
+	li $t0, 5
+	sw $t0, 0($s1)		# salva valori
+	li $t0, 21
+	sw $t0, 4($s1)	
+	li $t0, 47
+	sw $t0, 8($s1)	
+	li $t0, 73
+	sw $t0, 12($s1)	
+	li $t0, 81
+	sw $t0, 16($s1)	
+	li $t0, 11
+	sw $t0, 20($s1)	
+	li $t0, 25
+	sw $t0, 24($s1)	
+	li $t0, 35
+	sw $t0, 28($s1)	
+	li $t0, 52
+	sw $t0, 32($s1)	
+	li $t0, 72
+	sw $t0, 36($s1)	
+	li $t0, 15
+	sw $t0, 40($s1)	
+	li $t0, 30
+	sw $t0, 44($s1)	
+	li $t0, 55
+	sw $t0, 48($s1)	
+	li $t0, 62
+	sw $t0, 52($s1)	
+	li $t0, 75
+	sw $t0, 56($s1)
+
+# creazione cartella7
+	
+	li $v0, 9
+	li $a0, 64	
+	syscall			# allocazione memoria
+
+	sw $v0 , 60($s1)	# indirizzo in cartella precedente
+	add $s1, $v0, $zero	# salva indirizzo
+
+	li $t0, 3
+	sw $t0, 0($s1)		# salva valori
+	li $t0, 20
+	sw $t0, 4($s1)	
+	li $t0, 38
+	sw $t0, 8($s1)	
+	li $t0, 79
+	sw $t0, 12($s1)	
+	li $t0, 89
+	sw $t0, 16($s1)	
+	li $t0, 10
+	sw $t0, 20($s1)	
+	li $t0, 33
+	sw $t0, 24($s1)	
+	li $t0, 41
+	sw $t0, 28($s1)	
+	li $t0, 65
+	sw $t0, 32($s1)	
+	li $t0, 77
+	sw $t0, 36($s1)	
+	li $t0, 18
+	sw $t0, 40($s1)	
+	li $t0, 29
+	sw $t0, 44($s1)	
+	li $t0, 45
+	sw $t0, 48($s1)	
+	li $t0, 44
+	sw $t0, 52($s1)	
+	li $t0, 83
+	sw $t0, 56($s1)
+
+# creazione cartella8
+	
+	li $v0, 9
+	li $a0, 64	
+	syscall			# allocazione memoria
+
+	sw $v0 , 60($s1)	# indirizzo in cartella precedente
+	add $s1, $v0, $zero	# salva indirizzo
+
+	li $t0, 12
+	sw $t0, 0($s1)		# salva valori
+	li $t0, 36
+	sw $t0, 4($s1)	
+	li $t0, 53
+	sw $t0, 8($s1)	
+	li $t0, 68
+	sw $t0, 12($s1)	
+	li $t0, 81
+	sw $t0, 16($s1)	
+	li $t0, 6
+	sw $t0, 20($s1)	
+	li $t0, 32
+	sw $t0, 24($s1)	
+	li $t0, 55
+	sw $t0, 28($s1)	
+	li $t0, 75
+	sw $t0, 32($s1)	
+	li $t0, 86
+	sw $t0, 36($s1)	
+	li $t0, 16
+	sw $t0, 40($s1)	
+	li $t0, 26
+	sw $t0, 44($s1)	
+	li $t0, 41
+	sw $t0, 48($s1)	
+	li $t0, 64
+	sw $t0, 52($s1)	
+	li $t0, 84
+	sw $t0, 56($s1)
+
+# creazione cartella9
+	
+	li $v0, 9
+	li $a0, 64	
+	syscall			# allocazione memoria
+
+	sw $v0 , 60($s1)	# indirizzo in cartella precedente
+	add $s1, $v0, $zero	# salva indirizzo
+
+	li $t0, 9
+	sw $t0, 0($s1)		# salva valori
+	li $t0, 20
+	sw $t0, 4($s1)	
+	li $t0, 36
+	sw $t0, 8($s1)	
+	li $t0, 70
+	sw $t0, 12($s1)	
+	li $t0, 84
+	sw $t0, 16($s1)	
+	li $t0, 16
+	sw $t0, 20($s1)	
+	li $t0, 46
+	sw $t0, 24($s1)	
+	li $t0, 56
+	sw $t0, 28($s1)	
+	li $t0, 71
+	sw $t0, 32($s1)	
+	li $t0, 86
+	sw $t0, 36($s1)	
+	li $t0, 2
+	sw $t0, 40($s1)	
+	li $t0, 27
+	sw $t0, 44($s1)	
+	li $t0, 38
+	sw $t0, 48($s1)	
+	li $t0, 51
+	sw $t0, 52($s1)	
+	li $t0, 66
+	sw $t0, 56($s1)
+
+
+	# creazione cartella10
+	
+	li $v0, 9
+	li $a0, 64	
+	syscall			# allocazione memoria
+
+	sw $v0 , 60($s1)	# indirizzo in cartella precedente
+	add $s1, $v0, $zero	# salva indirizzo
+
+	li $t0, 24
+	sw $t0, 0($s1)		# salva valori
+	li $t0, 44
+	sw $t0, 4($s1)	
+	li $t0, 53
+	sw $t0, 8($s1)	
+	li $t0, 66
+	sw $t0, 12($s1)	
+	li $t0, 86
+	sw $t0, 16($s1)	
+	li $t0, 9
+	sw $t0, 20($s1)	
+	li $t0, 14
+	sw $t0, 24($s1)	
+	li $t0, 39
+	sw $t0, 28($s1)	
+	li $t0, 58
+	sw $t0, 32($s1)	
+	li $t0, 79
+	sw $t0, 36($s1)	
+	li $t0, 1
+	sw $t0, 40($s1)	
+	li $t0, 25
+	sw $t0, 44($s1)	
+	li $t0, 49
+	sw $t0, 48($s1)	
+	li $t0, 69
+	sw $t0, 52($s1)	
+	li $t0, 70
+	sw $t0, 56($s1)
+	li $t0,0
+	sw $t0, 60($s1)
+
+
+# creazione cartelle per la cpu
+
+# inizializzazione cartella1
+
+	li $v0, 9
+	li $a0, 64	
+	syscall			# allocazione memoria
+
+	add $s1, $v0, $zero	# salva indirizzo
+	sw $v0 , nodoia	# indirizzo nella testa
+	move $s1, $v0		# nodo corrente è il nodo creato
+	li $t0, 19
+	sw $t0, 0($s1)		# salva valori
+	li $t0, 31
+	sw $t0, 4($s1)	
+	li $t0, 54
+	sw $t0, 8($s1)	
+	li $t0, 63
+	sw $t0, 12($s1)	
+	li $t0, 82
+	sw $t0, 16($s1)	
+	li $t0, 3
+	sw $t0, 20($s1)	
+	li $t0, 10
+	sw $t0, 24($s1)	
+	li $t0, 45
+	sw $t0, 28($s1)	
+	li $t0, 67
+	sw $t0, 32($s1)	
+	li $t0, 74
+	sw $t0, 36($s1)	
+	li $t0, 28
+	sw $t0, 40($s1)	
+	li $t0, 40
+	sw $t0, 44($s1)	
+	li $t0, 55
+	sw $t0, 48($s1)	
+	li $t0, 75
+	sw $t0, 52($s1)	
+	li $t0, 90
+	sw $t0, 56($s1)
+
+# creazione cartella2
+
+	li $v0, 9
+	li $a0, 64	
+	syscall			# allocazione memoria
+
+	
+	sw $v0 , 60($s1)	# indirizzo in cartella precedente
+	add $s1, $v0, $zero	# salva indirizzo
+
+	li $t0, 7
+	sw $t0, 0($s1)		# salva valori
+	li $t0, 28
+	sw $t0, 4($s1)	
+	li $t0, 46
+	sw $t0, 8($s1)	
+	li $t0, 58
+	sw $t0, 12($s1)	
+	li $t0, 76
+	sw $t0, 16($s1)	
+	li $t0, 9
+	sw $t0, 20($s1)	
+	li $t0, 15
+	sw $t0, 24($s1)	
+	li $t0, 42
+	sw $t0, 28($s1)	
+	li $t0, 65
+	sw $t0, 32($s1)	
+	li $t0, 82
+	sw $t0, 36($s1)	
+	li $t0, 19
+	sw $t0, 40($s1)	
+	li $t0, 37
+	sw $t0, 44($s1)	
+	li $t0, 56
+	sw $t0, 48($s1)	
+	li $t0, 69
+	sw $t0, 52($s1)	
+	li $t0, 78
+	sw $t0, 56($s1)
+
+# creazione cartella3
+	
+	li $v0, 9
+	li $a0, 64	
+	syscall			# allocazione memoria
+
+	sw $v0 , 60($s1)	# indirizzo in cartella precedente
+	add $s1, $v0, $zero	# salva indirizzo
+
+	li $t0, 2
+	sw $t0, 0($s1)		# salva valori
+	li $t0, 23
+	sw $t0, 4($s1)	
+	li $t0, 39
+	sw $t0, 8($s1)	
+	li $t0, 51
+	sw $t0, 12($s1)	
+	li $t0, 79
+	sw $t0, 16($s1)	
+	li $t0, 10
+	sw $t0, 20($s1)	
+	li $t0, 29
+	sw $t0, 24($s1)	
+	li $t0, 40
+	sw $t0, 28($s1)	
+	li $t0, 70
+	sw $t0, 32($s1)	
+	li $t0, 87
+	sw $t0, 36($s1)	
+	li $t0, 20
+	sw $t0, 40($s1)	
+	li $t0, 34
+	sw $t0, 44($s1)	
+	li $t0, 43
+	sw $t0, 48($s1)	
+	li $t0, 66
+	sw $t0, 52($s1)	
+	li $t0, 89
+	sw $t0, 56($s1)
+
+# creazione cartella4
+	
+	li $v0, 9
+	li $a0, 64	
+	syscall			# allocazione memoria
+
+	sw $v0 , 60($s1)	# indirizzo in cartella precedente
+	add $s1, $v0, $zero	# salva indirizzo
+
+	li $t0, 18
+	sw $t0, 0($s1)		# salva valori
+	li $t0, 23
+	sw $t0, 4($s1)	
+	li $t0, 52
+	sw $t0, 8($s1)	
+	li $t0, 72
+	sw $t0, 12($s1)	
+	li $t0, 86
+	sw $t0, 16($s1)	
+	li $t0, 12
+	sw $t0, 20($s1)	
+	li $t0, 30
+	sw $t0, 24($s1)	
+	li $t0, 40
+	sw $t0, 28($s1)	
+	li $t0, 68
+	sw $t0, 32($s1)	
+	li $t0, 76
+	sw $t0, 36($s1)	
+	li $t0, 27
+	sw $t0, 40($s1)	
+	li $t0, 39
+	sw $t0, 44($s1)	
+	li $t0, 51
+	sw $t0, 48($s1)	
+	li $t0, 63
+	sw $t0, 52($s1)	
+	li $t0, 82
+	sw $t0, 56($s1)
+
+# creazione cartella5
+	
+	li $v0, 9
+	li $a0, 64	
+	syscall			# allocazione memoria
+
+	sw $v0 , 60($s1)	# indirizzo in cartella precedente
+	add $s1, $v0, $zero	# salva indirizzo
+
+	li $t0, 7
+	sw $t0, 0($s1)		# salva valori
+	li $t0, 14
+	sw $t0, 4($s1)	
+	li $t0, 28
+	sw $t0, 8($s1)	
+	li $t0, 56
+	sw $t0, 12($s1)	
+	li $t0, 78
+	sw $t0, 16($s1)	
+	li $t0, 16
+	sw $t0, 20($s1)	
+	li $t0, 33
+	sw $t0, 24($s1)	
+	li $t0, 45
+	sw $t0, 28($s1)	
+	li $t0, 65
+	sw $t0, 32($s1)	
+	li $t0, 85
+	sw $t0, 36($s1)	
+	li $t0, 8
+	sw $t0, 40($s1)	
+	li $t0, 35
+	sw $t0, 44($s1)	
+	li $t0, 51
+	sw $t0, 48($s1)	
+	li $t0, 67
+	sw $t0, 52($s1)	
+	li $t0, 90
+	sw $t0, 56($s1)
+
+# creazione cartella6
+	
+	li $v0, 9
+	li $a0, 64	
+	syscall			# allocazione memoria
+
+	sw $v0 , 60($s1)	# indirizzo in cartella precedente
+	add $s1, $v0, $zero	# salva indirizzo
+
+	li $t0, 14
+	sw $t0, 0($s1)		# salva valori
+	li $t0, 26
+	sw $t0, 4($s1)	
+	li $t0, 49
+	sw $t0, 8($s1)	
+	li $t0, 65
+	sw $t0, 12($s1)	
+	li $t0, 78
+	sw $t0, 16($s1)	
+	li $t0, 5
+	sw $t0, 20($s1)	
+	li $t0, 33
+	sw $t0, 24($s1)	
+	li $t0, 48
+	sw $t0, 28($s1)	
+	li $t0, 67
+	sw $t0, 32($s1)	
+	li $t0, 81
+	sw $t0, 36($s1)	
+	li $t0, 1
+	sw $t0, 40($s1)	
+	li $t0, 28
+	sw $t0, 44($s1)	
+	li $t0, 37
+	sw $t0, 48($s1)	
+	li $t0, 59
+	sw $t0, 52($s1)	
+	li $t0, 77
+	sw $t0, 56($s1)
+
+# creazione cartella7
+	
+	li $v0, 9
+	li $a0, 64	
+	syscall			# allocazione memoria
+
+	sw $v0 , 60($s1)	# indirizzo in cartella precedente
+	add $s1, $v0, $zero	# salva indirizzo
+
+	li $t0, 10
+	sw $t0, 0($s1)		# salva valori
+	li $t0, 29
+	sw $t0, 4($s1)	
+	li $t0, 52
+	sw $t0, 8($s1)	
+	li $t0, 68
+	sw $t0, 12($s1)	
+	li $t0, 80
+	sw $t0, 16($s1)	
+	li $t0, 5
+	sw $t0, 20($s1)	
+	li $t0, 32
+	sw $t0, 24($s1)	
+	li $t0, 41
+	sw $t0, 28($s1)	
+	li $t0, 65
+	sw $t0, 32($s1)	
+	li $t0, 81
+	sw $t0, 36($s1)	
+	li $t0, 19
+	sw $t0, 40($s1)	
+	li $t0, 28
+	sw $t0, 44($s1)	
+	li $t0, 44
+	sw $t0, 48($s1)	
+	li $t0, 78
+	sw $t0, 52($s1)	
+	li $t0, 82
+	sw $t0, 56($s1)
+
+# creazione cartella8
+	
+	li $v0, 9
+	li $a0, 64	
+	syscall			# allocazione memoria
+
+	sw $v0 , 60($s1)	# indirizzo in cartella precedente
+	add $s1, $v0, $zero	# salva indirizzo
+
+	li $t0, 24
+	sw $t0, 0($s1)		# salva valori
+	li $t0, 44
+	sw $t0, 4($s1)	
+	li $t0, 53
+	sw $t0, 8($s1)	
+	li $t0, 66
+	sw $t0, 12($s1)	
+	li $t0, 86
+	sw $t0, 16($s1)	
+	li $t0, 9
+	sw $t0, 20($s1)	
+	li $t0, 14
+	sw $t0, 24($s1)	
+	li $t0, 39
+	sw $t0, 28($s1)	
+	li $t0, 58
+	sw $t0, 32($s1)	
+	li $t0, 79
+	sw $t0, 36($s1)	
+	li $t0, 1
+	sw $t0, 40($s1)	
+	li $t0, 25
+	sw $t0, 44($s1)	
+	li $t0, 49
+	sw $t0, 48($s1)	
+	li $t0, 69
+	sw $t0, 52($s1)	
+	li $t0, 70
+	sw $t0, 56($s1)
+
+# creazione cartella9
+	
+	li $v0, 9
+	li $a0, 64	
+	syscall			# allocazione memoria
+
+	sw $v0 , 60($s1)	# indirizzo in cartella precedente
+	add $s1, $v0, $zero	# salva indirizzo
+
+	li $t0, 12
+	sw $t0, 0($s1)		# salva valori
+	li $t0, 39
+	sw $t0, 4($s1)	
+	li $t0, 43
+	sw $t0, 8($s1)	
+	li $t0, 59
+	sw $t0, 12($s1)	
+	li $t0, 75
+	sw $t0, 16($s1)	
+	li $t0, 6
+	sw $t0, 20($s1)	
+	li $t0, 42
+	sw $t0, 24($s1)	
+	li $t0, 55
+	sw $t0, 28($s1)	
+	li $t0, 60
+	sw $t0, 32($s1)	
+	li $t0, 89
+	sw $t0, 36($s1)	
+	li $t0, 15
+	sw $t0, 40($s1)	
+	li $t0, 26
+	sw $t0, 44($s1)	
+	li $t0, 34
+	sw $t0, 48($s1)	
+	li $t0, 64
+	sw $t0, 52($s1)	
+	li $t0, 76
+	sw $t0, 56($s1)
+
+
+	# creazione cartella10
+	
+	li $v0, 9
+	li $a0, 64	
+	syscall			# allocazione memoria
+
+	sw $v0 , 60($s1)	# indirizzo in cartella precedente
+	add $s1, $v0, $zero	# salva indirizzo
+
+	li $t0, 4
+	sw $t0, 0($s1)		# salva valori
+	li $t0, 25
+	sw $t0, 4($s1)	
+	li $t0, 44
+	sw $t0, 8($s1)	
+	li $t0, 59
+	sw $t0, 12($s1)	
+	li $t0, 71
+	sw $t0, 16($s1)	
+	li $t0, 5
+	sw $t0, 20($s1)	
+	li $t0, 31
+	sw $t0, 24($s1)	
+	li $t0, 47
+	sw $t0, 28($s1)	
+	li $t0, 60
+	sw $t0, 32($s1)	
+	li $t0, 80
+	sw $t0, 36($s1)	
+	li $t0, 13
+	sw $t0, 40($s1)	
+	li $t0, 27
+	sw $t0, 44($s1)	
+	li $t0, 38
+	sw $t0, 48($s1)	
+	li $t0, 52
+	sw $t0, 52($s1)	
+	li $t0, 74
+	sw $t0, 56($s1)
+	li $t0,0
+	sw $t0, 60($s1)
+
+
+	j oggetto
