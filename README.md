@@ -1,2 +1,2 @@
-# Tombola_assemboly_mips32
+# Tombola_assembly_mips32
 
